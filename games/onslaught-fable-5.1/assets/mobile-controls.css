@@ -1,0 +1,481 @@
+/* ONSLAUGHT — mobile combat UI layer
+   Uses the game's existing Rajdhani / Orbitron typography and cyan/orange palette. */
+
+:root {
+  --mobile-safe-top: env(safe-area-inset-top, 0px);
+  --mobile-safe-right: env(safe-area-inset-right, 0px);
+  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-safe-left: env(safe-area-inset-left, 0px);
+  --touch-glass: rgba(4, 8, 16, 0.58);
+  --touch-glass-strong: rgba(4, 10, 20, 0.82);
+  --touch-edge: rgba(94, 242, 255, 0.44);
+  --touch-edge-dim: rgba(238, 244, 255, 0.16);
+  --touch-shadow: rgba(0, 0, 0, 0.58);
+}
+
+html.touch-ui,
+html.touch-ui body {
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.touch-ui body {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  -webkit-touch-callout: none;
+}
+
+html.touch-ui canvas#game {
+  width: 100vw;
+  height: 100dvh;
+}
+
+.mobile-controls,
+.mobile-orientation-note {
+  display: none;
+}
+
+html.touch-ui .mobile-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  display: block;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease;
+  font-family: var(--font-ui);
+}
+
+html.touch-ui .mobile-controls.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+html.touch-ui .mobile-controls *,
+html.touch-ui .mobile-controls *::before,
+html.touch-ui .mobile-controls *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Full right-side look surface. Buttons sit above it. */
+.mobile-look-zone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 58vw;
+  height: 100%;
+  z-index: 1;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.mobile-look-marker {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border: 1px solid rgba(94, 242, 255, 0.36);
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.76);
+  transition: opacity 80ms ease, transform 80ms ease;
+  pointer-events: none;
+  filter: drop-shadow(0 0 8px rgba(94, 242, 255, 0.22));
+}
+
+.mobile-look-marker::before,
+.mobile-look-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: rgba(238, 244, 255, 0.78);
+  transform: translate(-50%, -50%);
+}
+
+.mobile-look-marker::before { width: 18px; height: 1px; }
+.mobile-look-marker::after { width: 1px; height: 18px; }
+
+.mobile-look-zone.is-looking .mobile-look-marker {
+  opacity: 0.58;
+  transform: scale(1);
+}
+
+/* Left movement stick */
+.mobile-stick {
+  position: absolute;
+  left: calc(var(--mobile-safe-left) + 20px);
+  bottom: calc(var(--mobile-safe-bottom) + 22px);
+  width: clamp(118px, 25vw, 148px);
+  aspect-ratio: 1;
+  z-index: 5;
+  pointer-events: auto;
+  touch-action: none;
+  border-radius: 50%;
+  border: 1px solid var(--touch-edge-dim);
+  background:
+    radial-gradient(circle at center, rgba(94, 242, 255, 0.045) 0 42%, transparent 43%),
+    conic-gradient(from 45deg, transparent 0 10%, rgba(94, 242, 255, 0.12) 10.5% 11.5%, transparent 12% 35%, rgba(94, 242, 255, 0.12) 35.5% 36.5%, transparent 37% 60%, rgba(94, 242, 255, 0.12) 60.5% 61.5%, transparent 62% 85%, rgba(94, 242, 255, 0.12) 85.5% 86.5%, transparent 87%),
+    rgba(3, 8, 16, 0.26);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.42), 0 0 24px rgba(0, 0, 0, 0.28);
+}
+
+.mobile-stick::after {
+  content: "MOVE";
+  position: absolute;
+  left: 50%;
+  top: 17%;
+  transform: translateX(-50%);
+  font: 700 10px/1 var(--font-ui);
+  letter-spacing: 2.8px;
+  color: rgba(238, 244, 255, 0.34);
+}
+
+.mobile-stick.is-sprinting {
+  border-color: rgba(94, 242, 255, 0.54);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.42), 0 0 20px rgba(94, 242, 255, 0.14);
+}
+
+.mobile-stick-thumb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(94, 242, 255, 0.58);
+  background:
+    linear-gradient(145deg, rgba(238, 244, 255, 0.14), rgba(94, 242, 255, 0.02)),
+    var(--touch-glass-strong);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 14px rgba(94, 242, 255, 0.14),
+    0 7px 24px var(--touch-shadow);
+  will-change: transform;
+}
+
+.mobile-stick-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 38%;
+  border: 1px solid rgba(238, 244, 255, 0.42);
+  transform: rotate(45deg);
+}
+
+/* Action cluster */
+.mobile-action {
+  --size: 58px;
+  position: absolute;
+  z-index: 8;
+  width: var(--size);
+  height: var(--size);
+  border: 0;
+  padding: 0;
+  pointer-events: auto;
+  touch-action: none;
+  color: var(--ui);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  background: linear-gradient(145deg, rgba(238, 244, 255, 0.12), rgba(4, 8, 16, 0.72));
+  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.38), inset 0 0 0 1px var(--touch-edge-dim);
+  clip-path: polygon(17% 0, 100% 0, 100% 76%, 82% 100%, 0 100%, 0 24%);
+  transition: transform 70ms ease, filter 70ms ease, background 70ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mobile-action::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(94, 242, 255, 0.6), transparent);
+  opacity: 0.7;
+}
+
+.mobile-action:active,
+.mobile-action.is-held {
+  transform: scale(0.93);
+  filter: brightness(1.28);
+  background: linear-gradient(145deg, rgba(94, 242, 255, 0.2), rgba(4, 12, 22, 0.9));
+}
+
+.mobile-action .mobile-action-icon {
+  display: block;
+  margin: 0 auto 5px;
+  width: 19px;
+  height: 19px;
+  position: relative;
+}
+
+.mobile-action-fire {
+  --size: clamp(72px, 15vw, 86px);
+  right: calc(var(--mobile-safe-right) + 20px);
+  bottom: calc(var(--mobile-safe-bottom) + 20px);
+  color: #fff2e8;
+  font-size: 11px;
+  background: linear-gradient(145deg, rgba(255, 157, 60, 0.32), rgba(43, 12, 4, 0.8));
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.44),
+    inset 0 0 0 1px rgba(255, 157, 60, 0.54),
+    0 0 22px rgba(255, 105, 48, 0.12);
+}
+
+.mobile-action-fire::before { background: linear-gradient(90deg, transparent, rgba(255, 183, 107, 0.92), transparent); }
+.mobile-action-fire:active,
+.mobile-action-fire.is-held { background: linear-gradient(145deg, rgba(255, 157, 60, 0.52), rgba(64, 16, 5, 0.92)); }
+
+.mobile-action-ads {
+  right: calc(var(--mobile-safe-right) + 112px);
+  bottom: calc(var(--mobile-safe-bottom) + 28px);
+}
+
+.mobile-action-jump {
+  right: calc(var(--mobile-safe-right) + 24px);
+  bottom: calc(var(--mobile-safe-bottom) + 118px);
+}
+
+.mobile-action-reload {
+  right: calc(var(--mobile-safe-right) + 101px);
+  bottom: calc(var(--mobile-safe-bottom) + 108px);
+}
+
+.mobile-action-slide {
+  right: calc(var(--mobile-safe-right) + 190px);
+  bottom: calc(var(--mobile-safe-bottom) + 22px);
+}
+
+.mobile-action-weapon {
+  --size: 48px;
+  right: calc(var(--mobile-safe-right) + 184px);
+  bottom: calc(var(--mobile-safe-bottom) + 96px);
+  font-size: 9px;
+}
+
+.mobile-action-pause {
+  --size: 42px;
+  left: 50%;
+  top: calc(var(--mobile-safe-top) + 10px);
+  transform: translateX(-50%);
+  font-family: var(--font-title);
+  font-size: 15px;
+  letter-spacing: 0;
+  background: rgba(4, 8, 16, 0.5);
+}
+
+.mobile-action-pause:active { transform: translateX(-50%) scale(0.93); }
+
+/* Tiny line icons made from CSS so we do not add an icon dependency. */
+.icon-fire::before,
+.icon-fire::after,
+.icon-ads::before,
+.icon-ads::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.icon-fire::before { width: 18px; height: 18px; border: 1px solid currentColor; border-radius: 50%; }
+.icon-fire::after { width: 5px; height: 5px; background: currentColor; transform: translate(-50%, -50%) rotate(45deg); }
+.icon-ads::before { width: 18px; height: 18px; border: 1px solid currentColor; border-radius: 50%; }
+.icon-ads::after { width: 7px; height: 7px; border: 1px solid currentColor; border-radius: 50%; }
+.icon-jump::before { content: "↑"; position: absolute; inset: 0; display: grid; place-items: center; font: 900 23px/1 var(--font-title); }
+.icon-reload::before { content: "↻"; position: absolute; inset: 0; display: grid; place-items: center; font: 800 22px/1 var(--font-title); }
+.icon-slide::before { content: "▰"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; transform: skewX(-22deg); }
+.icon-weapon::before { content: "Ⅲ"; position: absolute; inset: 0; display: grid; place-items: center; font: 800 18px/1 var(--font-title); letter-spacing: -2px; }
+
+/* Mobile HUD composition: keep combat information away from thumb zones. */
+html.touch-ui .hud-bl {
+  left: calc(var(--mobile-safe-left) + 14px);
+  top: calc(var(--mobile-safe-top) + 12px);
+  bottom: auto;
+  gap: 6px;
+}
+
+html.touch-ui .hp-label,
+html.touch-ui .stat-k {
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+html.touch-ui .hp-bar {
+  width: min(32vw, 170px);
+  height: 5px;
+}
+
+html.touch-ui .stat-row { gap: 12px; }
+html.touch-ui .stat-v { font-size: 17px; }
+
+html.touch-ui .hud-tr {
+  right: calc(var(--mobile-safe-right) + 14px);
+  top: calc(var(--mobile-safe-top) + 10px);
+}
+
+html.touch-ui .score { font-size: 21px; }
+html.touch-ui .feed { margin-top: 5px; gap: 2px; }
+html.touch-ui .feed-item {
+  max-width: 44vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 2px 7px;
+}
+
+html.touch-ui .hud-br {
+  right: calc(var(--mobile-safe-right) + 18px);
+  bottom: calc(var(--mobile-safe-bottom) + 214px);
+  text-shadow: 0 2px 12px #000;
+}
+
+html.touch-ui .wpn-name { font-size: 10px; letter-spacing: 2px; }
+html.touch-ui .ammo-mag { font-size: 34px; }
+html.touch-ui .ammo-sep { font-size: 20px; }
+html.touch-ui .ammo-res { font-size: 19px; }
+html.touch-ui .wpn-slots { margin-top: 3px; }
+html.touch-ui .slot { width: 18px; height: 18px; font-size: 10px; }
+html.touch-ui .fire-mode { font-size: 9px; letter-spacing: 2px; margin-top: 2px; }
+
+html.touch-ui .banner { top: 12%; }
+html.touch-ui .banner-main { font-size: clamp(31px, 7vw, 48px); letter-spacing: clamp(3px, 1vw, 7px); }
+html.touch-ui .banner-sub { font-size: 12px; letter-spacing: 3px; }
+html.touch-ui .hint {
+  bottom: 35%;
+  font-size: 12px;
+  letter-spacing: 2px;
+  padding: 0 18vw;
+}
+html.touch-ui .popup { font-size: 14px; }
+html.touch-ui .popup.bonus { font-size: 17px; }
+
+/* Menu becomes a compact tactical briefing panel instead of a desktop card. */
+html.touch-ui .menu {
+  align-items: center;
+  padding:
+    calc(var(--mobile-safe-top) + 10px)
+    calc(var(--mobile-safe-right) + 12px)
+    calc(var(--mobile-safe-bottom) + 10px)
+    calc(var(--mobile-safe-left) + 12px);
+  background:
+    linear-gradient(180deg, rgba(2, 5, 10, 0.35), rgba(2, 5, 10, 0.88)),
+    radial-gradient(ellipse at 50% 35%, rgba(22, 50, 74, 0.34), rgba(3, 5, 10, 0.92));
+}
+
+html.touch-ui .menu-inner {
+  width: min(94vw, 620px);
+  max-height: calc(100dvh - var(--mobile-safe-top) - var(--mobile-safe-bottom) - 20px);
+  overflow: auto;
+  padding: clamp(22px, 5vw, 34px) clamp(20px, 6vw, 44px);
+  border-color: rgba(94, 242, 255, 0.28);
+  background:
+    linear-gradient(135deg, rgba(94, 242, 255, 0.035), transparent 36%),
+    rgba(4, 8, 16, 0.78);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+}
+
+html.touch-ui .title-kicker { font-size: 10px; letter-spacing: 3.6px; }
+html.touch-ui .title {
+  font-size: clamp(42px, 12vw, 70px);
+  letter-spacing: clamp(5px, 2.2vw, 11px);
+  margin-top: 5px;
+}
+html.touch-ui .subtitle { font-size: 12px; letter-spacing: 3.2px; margin-top: 7px; }
+html.touch-ui .btn-start {
+  min-width: 210px;
+  min-height: 52px;
+  margin: 24px 0 18px;
+  padding: 13px 40px;
+  font-size: 18px;
+  letter-spacing: 5px;
+}
+html.touch-ui .controls {
+  font-size: 12px;
+  line-height: 1.55;
+  letter-spacing: 1px;
+}
+html.touch-ui .controls > div + div { margin-top: 5px; }
+html.touch-ui .menu-stats { margin-top: 14px; font-size: 13px; letter-spacing: 2px; line-height: 1.55; }
+html.touch-ui .menu-foot { margin-top: 16px; font-size: 8px; letter-spacing: 2px; }
+
+.mobile-orientation-note {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--mobile-safe-top) + 10px);
+  z-index: 70;
+  transform: translateX(-50%);
+  padding: 8px 13px;
+  pointer-events: none;
+  color: rgba(238, 244, 255, 0.72);
+  background: rgba(3, 7, 13, 0.82);
+  border: 1px solid rgba(94, 242, 255, 0.22);
+  font: 700 9px/1 var(--font-ui);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+}
+
+html.touch-ui .mobile-orientation-note { display: none; }
+
+@media (orientation: portrait) and (max-width: 700px) {
+  html.touch-ui .mobile-orientation-note { display: block; }
+  html.touch-ui .mobile-stick {
+    width: clamp(116px, 31vw, 142px);
+    left: calc(var(--mobile-safe-left) + 14px);
+    bottom: calc(var(--mobile-safe-bottom) + 20px);
+  }
+  html.touch-ui .mobile-action-fire { right: calc(var(--mobile-safe-right) + 14px); }
+  html.touch-ui .mobile-action-ads { right: calc(var(--mobile-safe-right) + 97px); }
+  html.touch-ui .mobile-action-slide { right: calc(var(--mobile-safe-right) + 167px); }
+  html.touch-ui .mobile-action-weapon { right: calc(var(--mobile-safe-right) + 160px); }
+  html.touch-ui .hud-br { bottom: calc(var(--mobile-safe-bottom) + 204px); }
+  html.touch-ui .feed { display: none; }
+}
+
+/* Very short landscape phones: reduce vertical stack so the menu and HUD remain usable. */
+@media (orientation: landscape) and (max-height: 470px) {
+  html.touch-ui .menu-inner { padding: 15px 30px; }
+  html.touch-ui .title-kicker { font-size: 8px; }
+  html.touch-ui .title { font-size: 40px; margin-top: 2px; }
+  html.touch-ui .subtitle { font-size: 10px; }
+  html.touch-ui .btn-start { min-height: 44px; margin: 13px 0 10px; padding: 10px 34px; font-size: 15px; }
+  html.touch-ui .controls { font-size: 10px; line-height: 1.35; }
+  html.touch-ui .controls > div + div { margin-top: 2px; }
+  html.touch-ui .menu-foot { display: none; }
+  html.touch-ui .menu-stats { margin-top: 8px; font-size: 11px; }
+  html.touch-ui .mobile-stick { width: 116px; bottom: calc(var(--mobile-safe-bottom) + 12px); }
+  html.touch-ui .mobile-action-fire { --size: 72px; right: calc(var(--mobile-safe-right) + 14px); bottom: calc(var(--mobile-safe-bottom) + 12px); }
+  html.touch-ui .mobile-action-ads { --size: 52px; right: calc(var(--mobile-safe-right) + 94px); bottom: calc(var(--mobile-safe-bottom) + 18px); }
+  html.touch-ui .mobile-action-jump { --size: 52px; right: calc(var(--mobile-safe-right) + 18px); bottom: calc(var(--mobile-safe-bottom) + 94px); }
+  html.touch-ui .mobile-action-reload { --size: 48px; right: calc(var(--mobile-safe-right) + 87px); bottom: calc(var(--mobile-safe-bottom) + 88px); }
+  html.touch-ui .mobile-action-slide { --size: 50px; right: calc(var(--mobile-safe-right) + 154px); bottom: calc(var(--mobile-safe-bottom) + 12px); }
+  html.touch-ui .mobile-action-weapon { --size: 44px; right: calc(var(--mobile-safe-right) + 151px); bottom: calc(var(--mobile-safe-bottom) + 78px); }
+  html.touch-ui .hud-br { right: calc(var(--mobile-safe-right) + 10px); bottom: calc(var(--mobile-safe-bottom) + 159px); }
+  html.touch-ui .ammo-mag { font-size: 28px; }
+  html.touch-ui .wpn-slots { display: none; }
+  html.touch-ui .fire-mode { display: none; }
+  html.touch-ui .banner { top: 10%; }
+  html.touch-ui .hint { bottom: 39%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.touch-ui .mobile-controls,
+  html.touch-ui .mobile-action,
+  html.touch-ui .mobile-look-marker { transition: none; }
+}

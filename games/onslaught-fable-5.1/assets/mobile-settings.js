@@ -168,7 +168,7 @@
     const current = Number(game.input.sensitivity);
 
     if (baseSensitivity === null && Number.isFinite(current) && current > 0) {
-      baseSensitivity = current / multiplier;
+      baseSensitivity = current;
     }
 
     if (baseSensitivity !== null) {

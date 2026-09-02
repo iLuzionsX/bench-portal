@@ -5,6 +5,6 @@ export default defineConfig({
   build: {
     outDir: '../reconstructed-build',
     emptyOutDir: true,
-    target: 'es2020'
+    target: 'esnext'
   }
 });

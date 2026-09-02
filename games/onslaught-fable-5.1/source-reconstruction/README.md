@@ -1,44 +1,45 @@
-# ONSLAUGHT — reconstructed source
+# ONSLAUGHT — reconstructed + surpassed source
 
-This directory is a maintainable reconstruction of the shipped `onslaught-fable-5.1` production build. The original authoring source was not committed upstream, so minified symbol names, exact internal class boundaries, shader source layout, audio graph internals, and every tuning constant cannot be recovered losslessly.
+This directory is a maintainable reconstruction of the shipped `onslaught-fable-5.1` production build, followed by a deliberate improvement pass. The original authoring source was not committed upstream, so exact symbol names, internal class boundaries, shader layout, audio graph internals, and every tuning constant cannot be recovered losslessly. The shipped game remains the behavioral oracle; this source is the editable candidate intended to meet or beat it.
 
-## What is reconstructed now
+## Candidate systems
 
 - Vite + Three.js development project
 - arena scene / player camera / pointer-lock FPS movement
-- VK-7, Hammer-12 and Longshot weapon identities
-- magazine / reserve ammo, reload, fire-rate, spread, recoil and ADS behavior
-- held-fire behavior for the VK-7
-- sprint + forward slide state with camera-height/FOV response
+- VK-7, Hammer-12 and Longshot identities with ammo, reload, spread, recoil and ADS
+- held automatic fire, sprint and forward slide with camera/FOV response
 - spring-based viewmodel inertia, mouse sway, movement bob and recoil kick
 - wave progression and four enemy archetypes
-- hitscan damage, kills, player health and enemy melee damage
-- procedural fallback viewmodel and robot bodies
-- GLTFLoader-based optional weapon/enemy model replacement with stable paths
+- hitscan damage, player health, melee pressure, kills and HUD feedback
 - synthesized WebAudio weapon, hit, reload and hurt feedback
-- cyan tracers, impact sparks and physical shell-casing effects
-- ONSLAUGHT cyan / gunmetal / warning palette and HUD language
-- `window.game` development hook, matching the retrofit scripts' expectation
-- separate effective viewmodel render path: postprocessed world first, depth-cleared weapon overlay second
+- adaptive procedural combat score that intensifies with wave, horde and low-health pressure
+- cyan tracers, impact sparks, shell casings and persistent fading impact scars
+- procedural fallback guns/robots plus GLTFLoader-based replacement through stable model paths
+- separate effective first-person render path: postprocessed world followed by a depth-cleared crisp weapon overlay
 - ACES world rendering plus bloom, chromatic aberration, vignette and speed-driven radial blur
-- material-safe enemy hit flash and public dissolve hook
-- touch-aware far-enemy visibility cutoff
-- adaptive dynamic-resolution governor that reduces DPR/effect pressure under sustained frame-time or horde load
+- material-safe hit flash and dissolve hooks
+- adaptive dynamic-resolution governor under sustained frame-time or horde pressure
+- horde mesh-detail LOD and update throttling based on distance, enemy count and touch/mobile conditions
+- production mobile-control bridge reused on coarse-pointer devices rather than maintaining a divergent second control scheme
+- ONSLAUGHT cyan / gunmetal / warning visual language retained throughout
 
-## Remaining parity gates
+## Why this candidate goes beyond parity
 
-The shipped build still has systems that need to be recovered before this source can replace production:
+The shipped benchmark game is treated as a baseline, not a ceiling. The reconstructed candidate adds pressure-reactive music, persistent battlefield impact language, adaptive GPU quality control, horde-aware LOD/update budgets, model hot-swapping with procedural fallbacks, and a clean module boundary between gameplay, rendering, FX, assets, audio and performance systems. Those improvements make the project easier to extend while also targeting more stable mobile behavior during large waves.
 
-1. exact original recoil pattern tables and weapon tuning
-2. exact original HDR/MSAA + 13-tap bloom/chromatic/radial constants (current post stack is a behavioral reconstruction)
-3. shader-authentic hit-flash/dissolve implementation (current version is material-level parity)
-4. GPU-analytic particle implementation and persistent decals
-5. synthesized music layer and exact production gunshot graph
-6. exact mobile-control bridge behavior from `../assets/mobile-controls.js`
-7. exact arena geometry and wave tuning from the minified bundle
-8. true instanced/skinned horde renderer and animation LOD for large robot counts
+## Remaining exactness gaps
 
-Until those parity gates are met, **do not overwrite the shipped hashed bundle**. Build output is intentionally written to `../reconstructed-build/`.
+These are no longer blockers to using the reconstruction as an improvement candidate, but they remain differences from the original implementation:
+
+1. exact original recoil pattern tables/tuning
+2. exact original HDR/MSAA + 13-tap post constants
+3. shader-authentic original hit/dissolve implementation
+4. exact original GPU-analytic particle implementation
+5. exact original gunshot/music synthesis graph
+6. exact original arena geometry and wave constants
+7. true instanced/skinned renderer for very large animated hordes
+
+Build output remains isolated at `../reconstructed-build/`; do not overwrite the shipped hashed benchmark bundle until the reconstructed candidate has been play-tested side by side.
 
 ## Run
 
@@ -66,10 +67,8 @@ npm run build
 - `/models/enemies/heavy.glb`
 - `/models/enemies/ranged.glb`
 
-Target source is the CC0 Quaternius **Sci-Fi Essentials Kit** + **Sci-Fi Modular Gun Pack**. Poly Pizza also republishes individual Quaternius GLTF/GLB models under CC0, which is useful for selecting only the final production meshes rather than shipping entire packs.
+Target source is the CC0 Quaternius **Sci-Fi Essentials Kit** + **Sci-Fi Modular Gun Pack**. Imported models should be normalized to gunmetal/charcoal materials, cyan optics/idle emissives, and orange/red only for threat states. Missing assets intentionally fall back to procedural meshes so development never hard-fails on art availability.
 
-Imported models should be normalized to gunmetal/charcoal materials, cyan optics/idle emissives, and orange/red only for threat states. The loader intentionally falls back to procedural meshes when an asset is absent so development never hard-fails on missing art.
+## Evaluation rule
 
-## Reconstruction principle
-
-Treat the existing production game as the behavioral oracle. Port one system at a time, compare it against the shipped build, then remove the corresponding reconstruction approximation. This keeps recovery incremental and avoids turning “reconstruct source” into an unrelated rewrite.
+Judge this build against Fable 5.1 on the things a player actually feels: gun readability, responsiveness, movement, horde pressure, frame stability, combat feedback, mobile usability, visual coherence and maintainability. Preserve the original build untouched so comparisons stay honest.

@@ -1,0 +1,125 @@
+import * as THREE from 'three';
+import './style.css';
+import { WEAPONS, WEAPON_ORDER } from './game/weapons.js';
+import { archetypeForWave } from './game/enemies.js';
+
+const app = document.querySelector('#app');
+app.innerHTML = `
+  <div class="menu" id="menu"><div class="panel">
+    <div class="kicker">ARENA PROTOCOL // SECTOR 7</div><h1>ONSLAUGHT</h1>
+    <p class="sub">HOLD THE LINE AGAINST THE SWARM</p>
+    <button class="start" id="start">ENTER ARENA</button>
+    <div class="hint">WASD MOVE · SHIFT SPRINT · RMB ADS · R RELOAD · 1/2/3 WEAPONS</div>
+  </div></div>
+  <div class="hud hidden" id="hud">
+    <div class="top"><div class="stat">WAVE<b id="wave">1</b></div><div class="stat">HOSTILES<b id="hostiles">0</b></div><div class="stat">KILLS<b id="kills">0</b></div></div>
+    <div class="health"><div class="health-label">VITALS <span id="hp">100</span></div><div class="bar"><i id="hpbar"></i></div></div>
+    <div class="weapon"><div class="weapon-name" id="weaponName"></div><div class="ammo"><span id="ammo"></span><small> / <span id="reserve"></span></small></div></div>
+    <div class="crosshair"></div>
+  </div><div class="damage" id="damage"></div>`;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070c);
+scene.fog = new THREE.FogExp2(0x05070c, 0.024);
+const camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 220);
+camera.position.set(0, 1.72, 8);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+app.prepend(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x8ddcff, 0x111318, 1.4));
+const key = new THREE.DirectionalLight(0xffffff, 2.3); key.position.set(5, 10, 7); scene.add(key);
+const cyan = new THREE.PointLight(0x5ef2ff, 30, 22, 2); cyan.position.set(0, 5, 0); scene.add(cyan);
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90, 20, 20), new THREE.MeshStandardMaterial({ color: 0x10161d, metalness: .25, roughness: .82 }));
+floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const grid = new THREE.GridHelper(90, 45, 0x24424e, 0x17242c); grid.position.y = .01; scene.add(grid);
+for (let i = 0; i < 28; i++) {
+  const w = 1 + Math.random() * 3, h = 1 + Math.random() * 4, d = 1 + Math.random() * 3;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:0x151e26,metalness:.6,roughness:.62}));
+  const a = Math.random() * Math.PI * 2, r = 10 + Math.random() * 24; m.position.set(Math.cos(a)*r,h/2,Math.sin(a)*r); m.rotation.y = Math.random()*Math.PI; scene.add(m);
+}
+
+const state = { running:false, hp:100, wave:1, kills:0, weaponIndex:0, ammo:{}, reserve:{}, reloading:false, nextShot:0, enemies:[], spawnLeft:0, nextWaveAt:0, yaw:0, pitch:0, ads:false };
+for (const id of WEAPON_ORDER){ state.ammo[id]=WEAPONS[id].magSize; state.reserve[id]=WEAPONS[id].reserve; }
+const keys = new Set();
+const clock = new THREE.Clock();
+const raycaster = new THREE.Raycaster();
+const center = new THREE.Vector2(0,0);
+
+function currentWeapon(){ return WEAPONS[WEAPON_ORDER[state.weaponIndex]]; }
+function updateHud(){ const w=currentWeapon(); weaponName.textContent=w.name; ammo.textContent=state.ammo[w.id]; reserve.textContent=state.reserve[w.id]; hp.textContent=Math.max(0,Math.ceil(state.hp)); hpbar.style.width=`${Math.max(0,state.hp)}%`; wave.textContent=state.wave; hostiles.textContent=state.enemies.length; kills.textContent=state.kills; }
+
+function makeViewModel(){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color:0x182129,metalness:.78,roughness:.36});
+  const darkMat = new THREE.MeshStandardMaterial({color:0x0b1117,metalness:.7,roughness:.48});
+  const glowMat = new THREE.MeshStandardMaterial({color:0x5ef2ff,emissive:0x5ef2ff,emissiveIntensity:2.2,metalness:.2,roughness:.25});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(.18,.16,.78), bodyMat); body.position.set(.27,-.23,-.62); g.add(body);
+  const barrel = new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.55), darkMat); barrel.position.set(.27,-.19,-1.24); g.add(barrel);
+  const optic = new THREE.Mesh(new THREE.BoxGeometry(.1,.08,.12), glowMat); optic.position.set(.27,-.11,-.56); g.add(optic);
+  camera.add(g); scene.add(camera); return g;
+}
+const viewModel = makeViewModel();
+
+function makeEnemy(archetype, pos){
+  const root = new THREE.Group(); root.position.copy(pos); root.userData = { archetype, hp:archetype.hp, hit:false };
+  const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(archetype.color),metalness:.72,roughness:.48});
+  const em = new THREE.MeshStandardMaterial({color:new THREE.Color(archetype.emissive),emissive:new THREE.Color(archetype.emissive),emissiveIntensity:2.1,roughness:.25});
+  const s = archetype.radius * 2;
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(s*.8,s*1.35,s*.55),mat); torso.position.y=s*.95; torso.userData.enemyRoot=root; root.add(torso);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(s*.55,s*.42,s*.5),mat); head.position.set(0,s*1.75,0); head.userData.enemyRoot=root; root.add(head);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(s*.34,s*.09,s*.04),em); visor.position.set(0,s*1.78,-s*.27); visor.userData.enemyRoot=root; root.add(visor);
+  for(const x of [-1,1]){ const leg=new THREE.Mesh(new THREE.BoxGeometry(s*.2,s*.75,s*.2),mat); leg.position.set(x*s*.23,s*.38,0); leg.userData.enemyRoot=root; root.add(leg); }
+  scene.add(root); state.enemies.push(root); return root;
+}
+
+function startWave(){ state.spawnLeft=5+state.wave*3; spawnBatch(); }
+function spawnBatch(){ if(!state.running)return; if(state.spawnLeft<=0)return; const count=Math.min(3,state.spawnLeft); for(let i=0;i<count;i++){ const idx=state.spawnLeft-i; const a=Math.random()*Math.PI*2, r=18+Math.random()*12; makeEnemy(archetypeForWave(state.wave,idx),new THREE.Vector3(Math.cos(a)*r,0,Math.sin(a)*r)); } state.spawnLeft-=count; if(state.spawnLeft>0)setTimeout(spawnBatch,700); }
+function nextWave(){ state.wave++; startWave(); updateHud(); }
+
+function fire(){
+  const w=currentWeapon(), now=performance.now(); if(!state.running||state.reloading||now<state.nextShot)return; if(state.ammo[w.id]<=0){ reload(); return; }
+  state.nextShot=now+60000/w.rpm; state.ammo[w.id]--; updateHud();
+  const shots=w.pellets||1; for(let i=0;i<shots;i++){
+    const spread=state.ads?w.spreadAds:w.spreadHip; const dir=new THREE.Vector3((Math.random()-.5)*spread,(Math.random()-.5)*spread,-1).normalize().applyQuaternion(camera.quaternion);
+    raycaster.set(camera.position,dir); const hits=raycaster.intersectObjects(state.enemies,true);
+    if(hits.length){ const root=hits[0].object.userData.enemyRoot; if(root){ root.userData.hp-=w.damage; if(root.userData.hp<=0){ scene.remove(root); state.enemies.splice(state.enemies.indexOf(root),1); state.kills++; if(!state.enemies.length&&state.spawnLeft<=0){ clearTimeout(state.nextWaveAt); state.nextWaveAt=setTimeout(nextWave,1300); } } } }
+  }
+  state.pitch=Math.max(-1.3,state.pitch-w.recoil.pitch); viewModel.position.z=.06; setTimeout(()=>viewModel.position.z=0,45);
+}
+
+function reload(){ const w=currentWeapon(); if(state.reloading||state.ammo[w.id]>=w.magSize||state.reserve[w.id]<=0)return; state.reloading=true; setTimeout(()=>{ const need=w.magSize-state.ammo[w.id], give=Math.min(need,state.reserve[w.id]); state.reserve[w.id]-=give; state.ammo[w.id]+=give; state.reloading=false; updateHud(); },w.reload*1000); }
+
+function damagePlayer(v){ state.hp-=v; damage.classList.add('on'); setTimeout(()=>damage.classList.remove('on'),90); if(state.hp<=0){ state.running=false; document.exitPointerLock?.(); menu.classList.remove('hidden'); start.textContent='REDEPLOY'; hud.classList.add('hidden'); } updateHud(); }
+
+addEventListener('keydown',e=>{ keys.add(e.code); if(e.code==='KeyR')reload(); if(/^Digit[123]$/.test(e.code)){ state.weaponIndex=Number(e.code.slice(-1))-1; updateHud(); } });
+addEventListener('keyup',e=>keys.delete(e.code));
+addEventListener('mousedown',e=>{ if(e.button===0)fire(); if(e.button===2)state.ads=true; });
+addEventListener('mouseup',e=>{ if(e.button===2)state.ads=false; });
+addEventListener('contextmenu',e=>e.preventDefault());
+addEventListener('mousemove',e=>{ if(document.pointerLockElement!==renderer.domElement)return; state.yaw-=e.movementX*.0022; state.pitch-=e.movementY*.0022; state.pitch=Math.max(-1.45,Math.min(1.45,state.pitch)); });
+
+start.addEventListener('click',()=>{ state.running=true; state.hp=100; state.wave=1; state.kills=0; state.enemies.forEach(e=>scene.remove(e)); state.enemies.length=0; for(const id of WEAPON_ORDER){state.ammo[id]=WEAPONS[id].magSize;state.reserve[id]=WEAPONS[id].reserve;} menu.classList.add('hidden'); hud.classList.remove('hidden'); renderer.domElement.requestPointerLock?.(); startWave(); updateHud(); });
+renderer.domElement.addEventListener('click',()=>{ if(state.running&&document.pointerLockElement!==renderer.domElement)renderer.domElement.requestPointerLock?.(); });
+
+function tick(){ requestAnimationFrame(tick); const dt=Math.min(clock.getDelta(),.05); if(state.running){
+  camera.rotation.order='YXZ'; camera.rotation.y=state.yaw; camera.rotation.x=state.pitch;
+  const forward=new THREE.Vector3(Math.sin(state.yaw),0,-Math.cos(state.yaw)); const right=new THREE.Vector3(Math.cos(state.yaw),0,Math.sin(state.yaw)); const move=new THREE.Vector3();
+  if(keys.has('KeyW'))move.add(forward); if(keys.has('KeyS'))move.sub(forward); if(keys.has('KeyD'))move.add(right); if(keys.has('KeyA'))move.sub(right); if(move.lengthSq())move.normalize();
+  const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'); camera.position.addScaledVector(move,(sprint?8.5:5.6)*dt); camera.position.y=1.72;
+  const targetFov=state.ads?currentWeapon().adsFov:78; camera.fov=THREE.MathUtils.damp(camera.fov,targetFov,12,dt); camera.updateProjectionMatrix();
+  viewModel.rotation.x=THREE.MathUtils.damp(viewModel.rotation.x,state.ads?-.02:.045,10,dt); viewModel.position.x=THREE.MathUtils.damp(viewModel.position.x,state.ads?-.27:0,12,dt);
+  if(keys.has('Mouse0')&&currentWeapon().fireMode==='auto')fire();
+  for(const enemy of [...state.enemies]){ const a=enemy.userData.archetype; const delta=new THREE.Vector3().subVectors(camera.position,enemy.position); delta.y=0; const dist=delta.length(); if(dist>1.15){ enemy.position.addScaledVector(delta.normalize(),a.speed*dt); enemy.lookAt(camera.position.x,enemy.position.y,camera.position.z); } else { enemy.userData.attack=(enemy.userData.attack||0)-dt; if(enemy.userData.attack<=0){ damagePlayer(a.damage); enemy.userData.attack=.85; } } }
+ }
+ renderer.render(scene,camera); }
+tick();
+
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+window.game = { scene, camera, renderer, state, WEAPONS, reconstructed:true, artDirection:{palette:{gunmetal:'#182129',dark:'#0b1117',cyan:'#5ef2ff',warn:'#ff9d3c',danger:'#ff3b3b'}} };

@@ -35,18 +35,24 @@ export async function loadOptionalModel(path, { scale = 1, rotationY = 0 } = {})
       if (!obj.isMesh) return;
       obj.castShadow = false;
       obj.receiveShadow = false;
-      const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
-      for (const mat of materials) {
-        if (!mat) continue;
-        mat = mat.clone?.() || mat;
-        if ('metalness' in mat) mat.metalness = Math.max(mat.metalness ?? 0, 0.48);
-        if ('roughness' in mat) mat.roughness = Math.min(Math.max(mat.roughness ?? 0.55, 0.3), 0.76);
+      if (Array.isArray(obj.material)) {
+        obj.material = obj.material.map(mat => tuneMaterial(mat?.clone?.() || mat));
+      } else if (obj.material) {
+        obj.material = tuneMaterial(obj.material.clone?.() || obj.material);
       }
     });
     return { root, animations: gltf.animations || [] };
   } catch {
     return null;
   }
+}
+
+function tuneMaterial(mat) {
+  if (!mat) return mat;
+  if ('metalness' in mat) mat.metalness = Math.max(mat.metalness ?? 0, 0.48);
+  if ('roughness' in mat) mat.roughness = Math.min(Math.max(mat.roughness ?? 0.55, 0.3), 0.76);
+  mat.needsUpdate = true;
+  return mat;
 }
 
 export function fitModelToBounds(root, targetSize = 1) {

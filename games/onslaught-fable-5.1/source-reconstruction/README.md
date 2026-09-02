@@ -19,20 +19,24 @@ This directory is a maintainable reconstruction of the shipped `onslaught-fable-
 - cyan tracers, impact sparks and physical shell-casing effects
 - ONSLAUGHT cyan / gunmetal / warning palette and HUD language
 - `window.game` development hook, matching the retrofit scripts' expectation
+- separate effective viewmodel render path: postprocessed world first, depth-cleared weapon overlay second
+- ACES world rendering plus bloom, chromatic aberration, vignette and speed-driven radial blur
+- material-safe enemy hit flash and public dissolve hook
+- touch-aware far-enemy visibility cutoff
+- adaptive dynamic-resolution governor that reduces DPR/effect pressure under sustained frame-time or horde load
 
 ## Remaining parity gates
 
 The shipped build still has systems that need to be recovered before this source can replace production:
 
 1. exact original recoil pattern tables and weapon tuning
-2. separate viewmodel render pass
-3. original HDR/MSAA + 13-tap bloom/chromatic/radial/ACES post pipeline
-4. hit-flash and dissolve enemy shaders
-5. GPU-analytic particle implementation and persistent decals
-6. synthesized music layer and exact production gunshot graph
-7. exact mobile-control bridge behavior from `../assets/mobile-controls.js`
-8. exact arena geometry and wave tuning from the minified bundle
-9. performance pass: instancing/LOD for large robot hordes
+2. exact original HDR/MSAA + 13-tap bloom/chromatic/radial constants (current post stack is a behavioral reconstruction)
+3. shader-authentic hit-flash/dissolve implementation (current version is material-level parity)
+4. GPU-analytic particle implementation and persistent decals
+5. synthesized music layer and exact production gunshot graph
+6. exact mobile-control bridge behavior from `../assets/mobile-controls.js`
+7. exact arena geometry and wave tuning from the minified bundle
+8. true instanced/skinned horde renderer and animation LOD for large robot counts
 
 Until those parity gates are met, **do not overwrite the shipped hashed bundle**. Build output is intentionally written to `../reconstructed-build/`.
 

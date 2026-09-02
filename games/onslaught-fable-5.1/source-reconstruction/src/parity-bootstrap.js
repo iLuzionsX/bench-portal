@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { PerformanceGovernor } from './game/performance.js';
 
 const sleepFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
 while (!window.game?.scene || !window.game?.renderer || !window.game?.camera) await sleepFrame();
@@ -10,9 +11,6 @@ while (!window.game?.scene || !window.game?.renderer || !window.game?.camera) aw
 const { scene, camera, renderer, state } = window.game;
 const touch = navigator.maxTouchPoints > 0 || matchMedia?.('(pointer:coarse)').matches;
 
-// The reconstruction originally attached its first-person weapon group beneath the
-// camera. Keeping that group out of the world post pass prevents bloom/fog/depth
-// from making the weapon feel like ordinary world geometry.
 const findViewmodelRoot = () => camera.children.find(child => child.isGroup && child.children.some(n => n.isMesh || n.isGroup));
 let viewmodelRoot = findViewmodelRoot();
 
@@ -98,8 +96,6 @@ function parityRender(targetScene, targetCamera){
 }
 renderer.render = parityRender;
 
-// Hit flash + dissolve contract. Main gameplay can call these directly; until then,
-// the watchdog detects HP changes/deaths and applies a safe material-level effect.
 const tracked = new WeakMap();
 const dissolving = new Set();
 function cloneEnemyMaterials(root){
@@ -162,7 +158,6 @@ function effectsWatchdog(){
     const dist = root.position.distanceTo(camera.position);
     root.traverse?.(obj => { if (obj.isMesh) obj.visible = dist < 58 || !touch; });
   }
-  // Recently detached enemies can be handed to this public hook before removal.
   requestAnimationFrame(effectsWatchdog);
 }
 requestAnimationFrame(effectsWatchdog);
@@ -172,8 +167,6 @@ window.addEventListener('resize', () => {
   cinematic.uniforms.resolution.value.set(innerWidth, innerHeight);
 });
 
-// Radial blur is driven by sprint/slide velocity, matching the original game's
-// 'speed pressure' without imposing the expensive effect while stationary.
 (function driveRadial(){
   const sliding = state?.sliding ? 1 : 0;
   const sprinting = state?.running && (state?.velocity?.length?.() || 0) > 6.5 ? 1 : 0;
@@ -181,8 +174,11 @@ window.addEventListener('resize', () => {
   requestAnimationFrame(driveRadial);
 })();
 
+const governor = new PerformanceGovernor({ renderer, composer, camera, state, bloom, cinematic });
+governor.start();
+
 window.game.parity = Object.assign(window.game.parity || {}, {
-  composer, bloom, cinematic,
+  composer, bloom, cinematic, governor,
   flashEnemy: flash,
   dissolveEnemy: dissolve,
   renderMode: 'postprocessed-world + depth-cleared-viewmodel',

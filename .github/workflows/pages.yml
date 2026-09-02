@@ -25,7 +25,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm run build
+      - name: Install Onslaught build dependencies
+        run: npm install --prefix games/onslaught-fable-5.1/source-reconstruction
+      - name: Build reconstructed Onslaught candidate
+        run: npm run build --prefix games/onslaught-fable-5.1/source-reconstruction
+      - name: Build benchmark portal
+        run: npm run build
       - uses: actions/configure-pages@v5
         with:
           enablement: true

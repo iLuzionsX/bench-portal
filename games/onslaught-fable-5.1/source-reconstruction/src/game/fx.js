@@ -2,6 +2,8 @@ import * as THREE from 'three';
 
 const tracerMat = new THREE.LineBasicMaterial({ color: 0x5ef2ff, transparent: true, opacity: 0.9 });
 const sparkMat = new THREE.MeshBasicMaterial({ color: 0xff9d3c, transparent: true, opacity: 1 });
+const decalGeo = new THREE.RingGeometry(0.025, 0.07, 10);
+const decalBaseMat = new THREE.MeshBasicMaterial({ color: 0x1a0d08, transparent: true, opacity: .58, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
 
 export function spawnTracer(scene, from, to, life = 0.06) {
   const geometry = new THREE.BufferGeometry().setFromPoints([from.clone(), to.clone()]);
@@ -32,18 +34,32 @@ export function spawnImpact(scene, point, normal = new THREE.Vector3(0, 1, 0), c
     group.add(mesh);
     particles.push({ mesh, velocity });
   }
+
+  const decal = new THREE.Mesh(decalGeo, decalBaseMat.clone());
+  decal.position.copy(point).addScaledVector(normal, .012);
+  decal.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal.clone().normalize());
+  decal.rotation.z = Math.random() * Math.PI * 2;
+  scene.add(decal);
+
   let age = 0;
   return {
     update(_now, dt) {
       age += dt;
-      for (const p of particles) {
-        p.velocity.y -= 8.5 * dt;
-        p.mesh.position.addScaledVector(p.velocity, dt);
-        p.mesh.material.opacity = Math.max(0, 1 - age / 0.28);
-      }
-      if (age >= 0.28) {
+      if (age < .28) {
+        for (const p of particles) {
+          p.velocity.y -= 8.5 * dt;
+          p.mesh.position.addScaledVector(p.velocity, dt);
+          p.mesh.material.opacity = Math.max(0, 1 - age / 0.28);
+        }
+      } else if (group.parent) {
         scene.remove(group);
         group.traverse(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+      }
+
+      if (age > 4.5) decal.material.opacity = Math.max(0, .58 * (1 - (age - 4.5) / 2));
+      if (age >= 6.5) {
+        scene.remove(decal);
+        decal.material.dispose();
         return false;
       }
       return true;

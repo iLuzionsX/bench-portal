@@ -127,7 +127,10 @@ async function runProductionIntegration() {
       const materials = Array.isArray(value) ? value : [value];
       for (const material of materials) {
         if (!material?.isMaterial || !material.color) continue;
-        if (/em|glow|cyan|orange|red|warning|light|white/i.test(name) || material.emissiveIntensity > 0.2) continue;
+        const namedAccent = /em|glow|cyan|orange|red|warning|light|white/i.test(name);
+        const emissiveHex = material.emissive?.getHex?.() ?? 0;
+        const glowingAccent = emissiveHex !== 0 && material.emissiveIntensity > 0.2;
+        if (namedAccent || glowingAccent) continue;
         arenaMaterials.push({
           name,
           rgb: [material.color.r, material.color.g, material.color.b],

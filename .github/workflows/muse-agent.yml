@@ -14,7 +14,7 @@ on:
       - .github/muse-task.txt
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   delegate:
@@ -41,6 +41,43 @@ jobs:
             MUSE_TASK="$(cat .github/muse-task.txt)"
           fi
           node scripts/muse-agent/run.mjs --task "$MUSE_TASK"
+
+      - name: Materialize validated Muse patch on review branch
+        if: success()
+        env:
+          MUSE_BRANCH: muse-review-${{ github.run_id }}
+        run: |
+          artifact="$(ls -1t .muse/artifacts/*.json 2>/dev/null | head -n 1)"
+          if [ -z "$artifact" ]; then
+            echo "No Muse artifact found; nothing to materialize."
+            exit 0
+          fi
+
+          node - "$artifact" <<'NODE' > /tmp/muse.patch
+          const fs = require('node:fs');
+          const artifactPath = process.argv[2];
+          const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+          process.stdout.write(artifact?.result?.patch || '');
+          NODE
+
+          if [ ! -s /tmp/muse.patch ]; then
+            echo "Muse returned no patch; leaving this run advisory-only."
+            exit 0
+          fi
+
+          git apply --check /tmp/muse.patch
+          git apply /tmp/muse.patch
+          git config user.name "muse-review-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git switch -c "$MUSE_BRANCH"
+          git add -A -- games/onslaught-fable-5.1 scripts/smoke-onslaught.mjs
+          if git diff --cached --quiet; then
+            echo "Muse patch produced no repository changes."
+            exit 0
+          fi
+          git commit -m "Muse review ${GITHUB_RUN_ID}"
+          git push origin "HEAD:refs/heads/$MUSE_BRANCH"
+          echo "Review branch: $MUSE_BRANCH"
 
       - name: Print Muse review artifact
         if: always()

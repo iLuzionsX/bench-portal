@@ -70,20 +70,70 @@ async function runMobile() {
 
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.game?.renderer && window.game?.state, null, { timeout: 15000 });
-  await page.waitForFunction(() => document.querySelector('script[data-reconstruction-bridge="production-mobile-controls"]'), null, { timeout: 7000 });
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(() => document.querySelector('#source-touch-controls'), null, { timeout: 7000 });
 
-  const mobile = await page.evaluate(() => ({
-    bridge: !!document.querySelector('script[data-reconstruction-bridge="production-mobile-controls"]'),
-    controls: !!document.querySelector('[class*="mobile"], [id*="mobile"], [class*="joystick"], [class*="touch"]'),
-    lowPower: window.game?.parity?.lowPower,
-    canvas: !!document.querySelector('canvas')
+  const beforeStart = await page.evaluate(() => {
+    const root = document.querySelector('#source-touch-controls');
+    const look = document.querySelector('#src-look');
+    const viewport = document.querySelector('meta[name="viewport"]')?.content || '';
+    return {
+      active: root?.classList.contains('is-active') || false,
+      ariaHidden: root?.getAttribute('aria-hidden'),
+      visibility: root ? getComputedStyle(root).visibility : '',
+      lookPointerEvents: look ? getComputedStyle(look).pointerEvents : '',
+      controls: [...document.querySelectorAll('#source-touch-controls [data-control]')].map(el => el.getAttribute('data-control')).sort(),
+      productionAdapter: !!document.querySelector('script[data-reconstruction-bridge="production-mobile-controls"]'),
+      viewport,
+      lowPower: window.game?.parity?.lowPower,
+      canvas: !!document.querySelector('canvas')
+    };
+  });
+
+  if (!beforeStart.canvas || beforeStart.lowPower !== true) throw new Error(`Mobile bootstrap failed: ${JSON.stringify(beforeStart)}`);
+  if (beforeStart.productionAdapter) throw new Error(`Production mobile adapter unexpectedly loaded: ${JSON.stringify(beforeStart)}`);
+  if (beforeStart.active || beforeStart.ariaHidden !== 'true' || beforeStart.visibility !== 'hidden' || beforeStart.lookPointerEvents !== 'none') {
+    throw new Error(`Touch UI must not intercept the start menu: ${JSON.stringify(beforeStart)}`);
+  }
+  if (!beforeStart.viewport.includes('maximum-scale=1.0') || !beforeStart.viewport.includes('user-scalable=no') || !beforeStart.viewport.includes('viewport-fit=cover')) {
+    throw new Error(`Mobile viewport guards missing: ${beforeStart.viewport}`);
+  }
+  for (const required of ['move', 'look', 'fire', 'ads', 'reload', 'slide', 'weapon']) {
+    if (!beforeStart.controls.includes(required)) throw new Error(`Missing mobile control ${required}: ${JSON.stringify(beforeStart.controls)}`);
+  }
+
+  // If the inactive look layer were intercepting the menu, this click would not
+  // transition the reconstruction into the running state.
+  await page.click('#start');
+  await page.waitForFunction(() => window.game?.state?.running === true, null, { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector('#source-touch-controls')?.classList.contains('is-active'), null, { timeout: 5000 });
+
+  const active = await page.evaluate(() => ({
+    ariaHidden: document.querySelector('#source-touch-controls')?.getAttribute('aria-hidden'),
+    visibility: getComputedStyle(document.querySelector('#source-touch-controls')).visibility,
+    lookPointerEvents: getComputedStyle(document.querySelector('#src-look')).pointerEvents,
+    firePointerEvents: getComputedStyle(document.querySelector('#src-fire')).pointerEvents
   }));
-  if (!mobile.bridge || !mobile.canvas || mobile.lowPower !== true) throw new Error(`Mobile bootstrap failed: ${JSON.stringify(mobile)}`);
-  if (!mobile.controls) throw new Error('Production mobile controls script loaded but no touch-control UI was detected');
+  if (active.ariaHidden !== 'false' || active.visibility !== 'visible' || active.lookPointerEvents === 'none' || active.firePointerEvents === 'none') {
+    throw new Error(`Touch UI did not activate with gameplay: ${JSON.stringify(active)}`);
+  }
+
+  const beforeAmmo = await page.evaluate(() => {
+    const g = window.game;
+    const id = ['vk7', 'hammer12', 'longshot'][g.state.weaponIndex];
+    return g.state.ammo[id];
+  });
+  await page.dispatchEvent('#src-fire', 'pointerdown', { pointerId: 41, pointerType: 'touch', clientX: 350, clientY: 760 });
+  await page.waitForTimeout(120);
+  await page.dispatchEvent('#src-fire', 'pointerup', { pointerId: 41, pointerType: 'touch', clientX: 350, clientY: 760 });
+  const afterAmmo = await page.evaluate(() => {
+    const g = window.game;
+    const id = ['vk7', 'hammer12', 'longshot'][g.state.weaponIndex];
+    return g.state.ammo[id];
+  });
+  if (!(afterAmmo < beforeAmmo)) throw new Error(`Mobile FIRE did not reach existing game input (${beforeAmmo} -> ${afterAmmo})`);
   if (pageErrors.length) throw new Error(`Mobile page errors: ${pageErrors.join(' | ')}`);
 
-  console.log('mobile smoke: PASS', mobile);
+  console.log('mobile smoke: PASS', { controls: beforeStart.controls, beforeAmmo, afterAmmo, active });
   await context.close();
 }
 

@@ -12,12 +12,16 @@ on:
       - main
     paths:
       - .github/muse-task.txt
+  issues:
+    types:
+      - opened
 
 permissions:
   contents: write
 
 jobs:
   delegate:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[muse-ui]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -34,9 +38,13 @@ jobs:
 
       - name: Run Muse Spark delegation
         env:
-          OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
-          MUSE_TASK: ${{ github.event.inputs.task }}
+          DISPATCH_TASK: ${{ github.event.inputs.task }}
+          ISSUE_TASK: ${{ github.event.issue.body }}
         run: |
+          MUSE_TASK="$DISPATCH_TASK"
+          if [ -z "$MUSE_TASK" ] && [ -n "$ISSUE_TASK" ]; then
+            MUSE_TASK="$ISSUE_TASK"
+          fi
           if [ -z "$MUSE_TASK" ]; then
             MUSE_TASK="$(cat .github/muse-task.txt)"
           fi

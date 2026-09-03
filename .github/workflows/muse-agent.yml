@@ -42,6 +42,16 @@ jobs:
           fi
           node scripts/muse-agent/run.mjs --task "$MUSE_TASK"
 
+      - name: Print Muse review artifact
+        if: always()
+        run: |
+          echo "===== MUSE_ARTIFACT_BEGIN ====="
+          for file in .muse/artifacts/*.json; do
+            [ -f "$file" ] || continue
+            cat "$file"
+          done
+          echo "===== MUSE_ARTIFACT_END ====="
+
       - name: Upload Muse review artifact
         if: always()
         uses: actions/upload-artifact@v4

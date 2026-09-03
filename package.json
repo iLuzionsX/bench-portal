@@ -6,6 +6,9 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "serve": "python3 -m http.server 4176 --directory dist",
-    "deploy:cloudflare": "npm run build && npx wrangler@4 pages deploy dist --project-name bench-portal --branch main"
+    "deploy:cloudflare": "npm run build && npx wrangler@4 pages deploy dist --project-name bench-portal --branch main",
+    "agent:muse": "node scripts/muse-agent/run.mjs",
+    "agent:muse:dry": "node scripts/muse-agent/run.mjs --dry-run",
+    "test:muse-agent": "node scripts/muse-agent/test.mjs"
   }
 }

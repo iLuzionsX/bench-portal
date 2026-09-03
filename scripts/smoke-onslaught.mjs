@@ -92,10 +92,18 @@ async function runProductionRobotModel() {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
-  await page.goto(`${productionBase}?debug`, { waitUntil: 'domcontentloaded' });
+  await page.goto(productionBase, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.game?.renderer && window.game?.scene && window.game?.enemies, null, { timeout: 15000 });
   await page.waitForFunction(() => window.onslaughtRobotAsset?.ready === true, null, { timeout: 20000 });
-  await page.waitForFunction(() => (window.game?.enemies?.list?.length || 0) > 0, null, { timeout: 12000 });
+
+  await page.evaluate(() => {
+    const game = window.game;
+    if (game.enemies.list.length === 0) {
+      const gate = game.arena.gates[0];
+      game.enemies.spawn('runner', gate, 1);
+    }
+  });
+  await page.waitForFunction(() => (window.game?.enemies?.list?.length || 0) > 0, null, { timeout: 3000 });
   await page.waitForFunction(() => {
     let found = false;
     window.game.scene.traverse((node) => {

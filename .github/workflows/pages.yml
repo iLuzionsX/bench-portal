@@ -25,6 +25,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Download CC0 robot asset for Onslaught
+        run: |
+          set -euo pipefail
+          ROBOT_URL="https://raw.githubusercontent.com/age2pierre/solid-akkadi/c6b4450c8738be1887f7b50415e30a9f642e5dc4/demo-app/public/assets/Animated_Robot.glb"
+          ROBOT_TMP="/tmp/Animated_Robot.glb"
+          curl --fail --location --retry 3 --silent --show-error "$ROBOT_URL" -o "$ROBOT_TMP"
+          ROBOT_SIZE="$(wc -c < "$ROBOT_TMP" | tr -d ' ')"
+          if [ "$ROBOT_SIZE" != "516576" ]; then
+            echo "Unexpected Animated_Robot.glb size: $ROBOT_SIZE" >&2
+            exit 1
+          fi
+          cp "$ROBOT_TMP" games/onslaught-fable-5.1/assets/Animated_Robot.glb
+          mkdir -p games/onslaught-fable-5.1/source-reconstruction/public/models/enemies
+          cp "$ROBOT_TMP" games/onslaught-fable-5.1/source-reconstruction/public/models/enemies/swarm.glb
       - name: Install Onslaught build dependencies
         run: npm install --prefix games/onslaught-fable-5.1/source-reconstruction
       - name: Build reconstructed Onslaught candidate

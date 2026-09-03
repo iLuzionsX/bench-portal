@@ -3,15 +3,24 @@ import path from 'node:path';
 
 const GAME_ROOT = 'games/onslaught-fable-5.1';
 const SOURCE_ROOT = `${GAME_ROOT}/source-reconstruction`;
-const EXACT_ALLOWED = new Set([
+
+const PATCH_EXACT = new Set([
   `${GAME_ROOT}/index.html`,
   `${GAME_ROOT}/game.json`,
   'scripts/smoke-onslaught.mjs',
 ]);
+
+const CONTEXT_ONLY = new Set([
+  `${GAME_ROOT}/assets/mobile-controls.js`,
+  `${GAME_ROOT}/assets/mobile-fire-look.js`,
+  `${GAME_ROOT}/assets/mobile-settings.js`,
+  `${GAME_ROOT}/assets/mobile-controls.css`,
+]);
+
 const TEXT_EXTENSIONS = new Set(['.css', '.html', '.js', '.json', '.md', '.mjs', '.txt']);
 const DENIED_SEGMENTS = new Set(['.git', '.github', '.muse', 'dist', 'node_modules']);
-const MAX_FILE_BYTES = 160_000;
-const MAX_CONTEXT_BYTES = 700_000;
+const MAX_FILE_BYTES = 180_000;
+const MAX_CONTEXT_BYTES = 800_000;
 
 function normalizeRepoPath(value) {
   const normalized = String(value || '').replaceAll('\\', '/').replace(/^\.\//, '').trim();
@@ -21,12 +30,23 @@ function normalizeRepoPath(value) {
   return parts.join('/');
 }
 
+function isSecretLike(repoPath) {
+  if (repoPath.split('/').some(part => DENIED_SEGMENTS.has(part))) return true;
+  return /\/(?:\.env(?:\.|$)|[^/]*(?:secret|credential|private[-_]?key)[^/]*)/i.test(`/${repoPath}`);
+}
+
 export function isAllowedPath(value) {
   let repoPath;
   try { repoPath = normalizeRepoPath(value); } catch { return false; }
-  if (repoPath.split('/').some(part => DENIED_SEGMENTS.has(part))) return false;
-  if (/\/(?:\.env(?:\.|$)|[^/]*(?:secret|credential|private[-_]?key)[^/]*)/i.test(`/${repoPath}`)) return false;
-  return EXACT_ALLOWED.has(repoPath) || repoPath.startsWith(`${SOURCE_ROOT}/`);
+  if (isSecretLike(repoPath)) return false;
+  return PATCH_EXACT.has(repoPath) || repoPath.startsWith(`${SOURCE_ROOT}/`);
+}
+
+export function isContextPath(value) {
+  let repoPath;
+  try { repoPath = normalizeRepoPath(value); } catch { return false; }
+  if (isSecretLike(repoPath)) return false;
+  return isAllowedPath(repoPath) || CONTEXT_ONLY.has(repoPath);
 }
 
 function patchPath(raw) {
@@ -62,10 +82,10 @@ export function validatePatchScope(patch) {
 }
 
 function shouldInclude(repoPath, stat) {
-  if (!stat.isFile() || stat.size > MAX_FILE_BYTES || !isAllowedPath(repoPath)) return false;
+  if (!stat.isFile() || stat.size > MAX_FILE_BYTES || !isContextPath(repoPath)) return false;
   const base = path.posix.basename(repoPath);
   if (base === 'package-lock.json' || base === 'pnpm-lock.yaml' || base === 'yarn.lock') return false;
-  return TEXT_EXTENSIONS.has(path.posix.extname(repoPath).toLowerCase()) || ['Dockerfile'].includes(base);
+  return TEXT_EXTENSIONS.has(path.posix.extname(repoPath).toLowerCase()) || base === 'Dockerfile';
 }
 
 function walk(rootDir, absoluteDir, out) {
@@ -88,7 +108,7 @@ export function collectContext(rootDir) {
   if (!fs.existsSync(sourceDir)) throw new Error(`Expected game source directory not found: ${SOURCE_ROOT}`);
   walk(rootDir, sourceDir, files);
 
-  for (const repoPath of EXACT_ALLOWED) {
+  for (const repoPath of new Set([...PATCH_EXACT, ...CONTEXT_ONLY])) {
     const absolute = path.join(rootDir, ...repoPath.split('/'));
     if (!fs.existsSync(absolute)) continue;
     const stat = fs.statSync(absolute);
@@ -109,7 +129,8 @@ export function collectContext(rootDir) {
 export const AGENT_SCOPE = Object.freeze({
   gameRoot: GAME_ROOT,
   sourceRoot: SOURCE_ROOT,
-  exactAllowed: [...EXACT_ALLOWED].sort(),
+  exactAllowed: [...PATCH_EXACT].sort(),
+  contextOnly: [...CONTEXT_ONLY].sort(),
   maxContextBytes: MAX_CONTEXT_BYTES,
   maxFileBytes: MAX_FILE_BYTES,
 });

@@ -2,3 +2,7 @@ dist/
 .DS_Store
 .wrangler/
 .claude/
+.muse/
+.env
+.env.*
+!.env.example

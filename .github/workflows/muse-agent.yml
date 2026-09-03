@@ -40,6 +40,7 @@ jobs:
 
       - name: Run Muse Spark delegation
         env:
+          OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
           DISPATCH_TASK: ${{ github.event.inputs.task }}
         run: |
           MUSE_TASK="$DISPATCH_TASK"

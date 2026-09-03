@@ -32,10 +32,19 @@ jobs:
           ROBOT_TMP="/tmp/Animated_Robot.glb"
           curl --fail --location --retry 3 --silent --show-error "$ROBOT_URL" -o "$ROBOT_TMP"
           ROBOT_SIZE="$(wc -c < "$ROBOT_TMP" | tr -d ' ')"
-          if [ "$ROBOT_SIZE" != "516576" ]; then
+          if [ "$ROBOT_SIZE" != "401024" ]; then
             echo "Unexpected Animated_Robot.glb size: $ROBOT_SIZE" >&2
             exit 1
           fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+          path = Path('/tmp/Animated_Robot.glb')
+          magic, version, declared_length = struct.unpack('<III', path.read_bytes()[:12])
+          if magic != 0x46546C67 or version != 2 or declared_length != path.stat().st_size:
+              raise SystemExit(f'Invalid GLB header: magic={magic:#x} version={version} declared={declared_length} actual={path.stat().st_size}')
+          print(f'Validated glTF {version} robot asset: {declared_length} bytes')
+          PY
           cp "$ROBOT_TMP" games/onslaught-fable-5.1/assets/Animated_Robot.glb
           mkdir -p games/onslaught-fable-5.1/source-reconstruction/public/models/enemies
           cp "$ROBOT_TMP" games/onslaught-fable-5.1/source-reconstruction/public/models/enemies/swarm.glb

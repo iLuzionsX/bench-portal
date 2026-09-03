@@ -23,8 +23,8 @@ const colorForMaterial = (name) => {
 const isAccentMaterial = (name, material) => {
   const key = name.toLowerCase();
   if (/em|glow|cyan|orange|red|warning|light|white/.test(key)) return true;
-  if (material?.emissiveIntensity > 0.2) return true;
-  return false;
+  const emissiveHex = material?.emissive?.getHex?.() ?? 0;
+  return emissiveHex !== 0 && material?.emissiveIntensity > 0.2;
 };
 
 const applyLightArena = async () => {

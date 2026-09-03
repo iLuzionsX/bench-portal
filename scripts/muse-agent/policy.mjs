@@ -7,6 +7,7 @@ const SOURCE_ROOT = `${GAME_ROOT}/source-reconstruction`;
 const PATCH_EXACT = new Set([
   `${GAME_ROOT}/index.html`,
   `${GAME_ROOT}/game.json`,
+  `${GAME_ROOT}/assets/emergency-broadcast.css`,
   'scripts/smoke-onslaught.mjs',
 ]);
 

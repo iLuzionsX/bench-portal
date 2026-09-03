@@ -4,6 +4,7 @@ import { extractResponseText } from './zen.mjs';
 
 assert.equal(isAllowedPath('games/onslaught-fable-5.1/source-reconstruction/src/main.js'), true);
 assert.equal(isAllowedPath('games/onslaught-fable-5.1/index.html'), true);
+assert.equal(isAllowedPath('games/onslaught-fable-5.1/assets/emergency-broadcast.css'), true);
 assert.equal(isAllowedPath('games/onslaught-fable-5.1/assets/mobile-controls.js'), false);
 assert.equal(isContextPath('games/onslaught-fable-5.1/assets/mobile-controls.js'), true);
 assert.equal(isContextPath('games/onslaught-fable-5.1/assets/mobile-fire-look.js'), true);
@@ -24,6 +25,17 @@ const safePatch = `diff --git a/games/onslaught-fable-5.1/source-reconstruction/
 const safe = validatePatchScope(safePatch);
 assert.equal(safe.ok, true);
 assert.deepEqual(safe.paths, ['games/onslaught-fable-5.1/source-reconstruction/src/main.js']);
+
+const productionUiPatch = `diff --git a/games/onslaught-fable-5.1/assets/emergency-broadcast.css b/games/onslaught-fable-5.1/assets/emergency-broadcast.css
+--- a/games/onslaught-fable-5.1/assets/emergency-broadcast.css
++++ b/games/onslaught-fable-5.1/assets/emergency-broadcast.css
+@@ -1,1 +1,1 @@
+-old
++new
+`;
+const productionUi = validatePatchScope(productionUiPatch);
+assert.equal(productionUi.ok, true);
+assert.deepEqual(productionUi.paths, ['games/onslaught-fable-5.1/assets/emergency-broadcast.css']);
 
 const contextOnlyPatch = `diff --git a/games/onslaught-fable-5.1/assets/mobile-controls.js b/games/onslaught-fable-5.1/assets/mobile-controls.js
 --- a/games/onslaught-fable-5.1/assets/mobile-controls.js

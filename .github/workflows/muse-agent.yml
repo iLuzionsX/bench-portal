@@ -7,6 +7,11 @@ on:
         description: Focused engineering objective for the Onslaught zombie shooter
         required: true
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - .github/muse-task.txt
 
 permissions:
   contents: read
@@ -30,8 +35,12 @@ jobs:
       - name: Run Muse Spark delegation
         env:
           OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
-          MUSE_TASK: ${{ inputs.task }}
-        run: node scripts/muse-agent/run.mjs --task "$MUSE_TASK"
+          MUSE_TASK: ${{ github.event.inputs.task }}
+        run: |
+          if [ -z "$MUSE_TASK" ]; then
+            MUSE_TASK="$(cat .github/muse-task.txt)"
+          fi
+          node scripts/muse-agent/run.mjs --task "$MUSE_TASK"
 
       - name: Upload Muse review artifact
         if: always()

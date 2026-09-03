@@ -1,0 +1,43 @@
+name: Muse Spark delegated agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Focused engineering objective for the Onslaught zombie shooter
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  delegate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Test agent guardrails
+        run: node scripts/muse-agent/test.mjs
+
+      - name: Run Muse Spark delegation
+        env:
+          OPENCODE_ZEN_API_KEY: ${{ secrets.OPENCODE_ZEN_API_KEY }}
+          MUSE_TASK: ${{ inputs.task }}
+        run: node scripts/muse-agent/run.mjs --task "$MUSE_TASK"
+
+      - name: Upload Muse review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: muse-spark-result
+          path: .muse/artifacts/
+          if-no-files-found: warn
+          retention-days: 7

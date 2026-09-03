@@ -17,7 +17,7 @@ const colorForMaterial = (name) => {
   if (/crate|box|cover/.test(key)) return 0xd8dee5;
   if (/wall|barrier|pillar|column|frame/.test(key)) return 0xf5f6f7;
   if (/metal|steel|panel|trim|rail/.test(key)) return 0xe1e6eb;
-  return 0edf0f3;
+  return 0xedf0f3;
 };
 
 const isAccentMaterial = (name, material) => {

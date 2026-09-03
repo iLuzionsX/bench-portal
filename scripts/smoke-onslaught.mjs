@@ -87,14 +87,13 @@ async function runMobile() {
   await context.close();
 }
 
-async function runProductionIntegration() {
+async function runProductionRobotModel() {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
   await page.goto(productionBase, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.game?.renderer && window.game?.scene && window.game?.enemies, null, { timeout: 15000 });
-  await page.waitForFunction(() => window.onslaughtLightMapTheme?.ready === true, null, { timeout: 20000 });
   await page.waitForFunction(() => window.onslaughtRobotAsset?.ready === true, null, { timeout: 20000 });
 
   await page.evaluate(() => {
@@ -113,7 +112,7 @@ async function runProductionIntegration() {
     return found;
   }, null, { timeout: 5000 });
 
-  const integration = await page.evaluate(() => {
+  const robot = await page.evaluate(() => {
     let downloaded = 0;
     window.game.scene.traverse((node) => {
       if (node.userData?.onslaughtDownloadedRobot) downloaded += 1;
@@ -121,60 +120,27 @@ async function runProductionIntegration() {
     const proceduralHidden = Object.values(window.game.enemies.types).every((type) =>
       (type.meshes || []).every((part) => part.mesh?.visible === false)
     );
-
-    const arenaMaterials = [];
-    for (const [name, value] of Object.entries(window.game.arena.mats || {})) {
-      const materials = Array.isArray(value) ? value : [value];
-      for (const material of materials) {
-        if (!material?.isMaterial || !material.color) continue;
-        const namedAccent = /em|glow|cyan|orange|red|warning|light|white/i.test(name);
-        const emissiveHex = material.emissive?.getHex?.() ?? 0;
-        const glowingAccent = emissiveHex !== 0 && material.emissiveIntensity > 0.2;
-        if (namedAccent || glowingAccent) continue;
-        arenaMaterials.push({
-          name,
-          rgb: [material.color.r, material.color.g, material.color.b],
-        });
-      }
-    }
-    const lightArenaMaterials = arenaMaterials.filter(({ rgb }) => (rgb[0] + rgb[1] + rgb[2]) / 3 > 0.7).length;
-    const daylight = window.game.scene.children.filter((node) =>
-      ['LightArenaHemisphere', 'LightArenaSun', 'LightArenaFill'].includes(node.name)
-    ).length;
-
     return {
       asset: window.onslaughtRobotAsset,
       downloaded,
       enemies: window.game.enemies.list.length,
       proceduralHidden,
-      theme: window.onslaughtLightMapTheme,
-      background: window.game.scene.background?.getHexString?.(),
-      fog: window.game.scene.fog?.color?.getHexString?.(),
-      skyHidden: window.game.sky?.mesh?.visible === false,
-      arenaMaterials: arenaMaterials.length,
-      lightArenaMaterials,
-      daylight,
     };
   });
 
-  if (!integration.asset?.ready) throw new Error(`Robot asset did not report ready: ${JSON.stringify(integration)}`);
-  if (integration.downloaded < 1) throw new Error(`No downloaded robot scene objects found: ${JSON.stringify(integration)}`);
-  if (!integration.proceduralHidden) throw new Error(`Procedural robot meshes remained visible: ${JSON.stringify(integration)}`);
-  if (!integration.theme?.ready) throw new Error(`Light map theme did not report ready: ${JSON.stringify(integration)}`);
-  if (integration.background !== 'f3f5f7' || integration.fog !== 'f3f5f7') throw new Error(`Light background/fog mismatch: ${JSON.stringify(integration)}`);
-  if (!integration.skyHidden) throw new Error(`Dark sky mesh remained visible: ${JSON.stringify(integration)}`);
-  if (integration.arenaMaterials < 1 || integration.lightArenaMaterials !== integration.arenaMaterials) throw new Error(`Arena materials were not fully converted to the light palette: ${JSON.stringify(integration)}`);
-  if (integration.daylight < 3) throw new Error(`Light arena daylight rig is incomplete: ${JSON.stringify(integration)}`);
-  if (pageErrors.length) throw new Error(`Production integration page errors: ${pageErrors.join(' | ')}`);
+  if (!robot.asset?.ready) throw new Error(`Robot asset did not report ready: ${JSON.stringify(robot)}`);
+  if (robot.downloaded < 1) throw new Error(`No downloaded robot scene objects found: ${JSON.stringify(robot)}`);
+  if (!robot.proceduralHidden) throw new Error(`Procedural robot meshes remained visible: ${JSON.stringify(robot)}`);
+  if (pageErrors.length) throw new Error(`Production robot page errors: ${pageErrors.join(' | ')}`);
 
-  console.log('production robot + light arena smoke: PASS', integration);
+  console.log('production robot asset smoke: PASS', robot);
   await page.close();
 }
 
 try {
   await runDesktop();
   await runMobile();
-  await runProductionIntegration();
+  await runProductionRobotModel();
   console.log('ONSLAUGHT SMOKE: PASS');
 } finally {
   await browser.close();

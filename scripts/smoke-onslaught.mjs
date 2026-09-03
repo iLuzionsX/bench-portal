@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 
 const base = process.env.ONSLAUGHT_SMOKE_URL || 'http://127.0.0.1:4176/games/onslaught-fable-5.1/reconstructed-build/';
+const productionBase = 'http://127.0.0.1:4176/games/onslaught-fable-5.1/';
 const browser = await chromium.launch({
   headless: true,
   args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist']
@@ -86,9 +87,52 @@ async function runMobile() {
   await context.close();
 }
 
+async function runProductionRobotModel() {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+
+  await page.goto(`${productionBase}?debug`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.game?.renderer && window.game?.scene && window.game?.enemies, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.onslaughtRobotAsset?.ready === true, null, { timeout: 20000 });
+  await page.waitForFunction(() => (window.game?.enemies?.list?.length || 0) > 0, null, { timeout: 12000 });
+  await page.waitForFunction(() => {
+    let found = false;
+    window.game.scene.traverse((node) => {
+      if (node.userData?.onslaughtDownloadedRobot) found = true;
+    });
+    return found;
+  }, null, { timeout: 5000 });
+
+  const robot = await page.evaluate(() => {
+    let downloaded = 0;
+    window.game.scene.traverse((node) => {
+      if (node.userData?.onslaughtDownloadedRobot) downloaded += 1;
+    });
+    const proceduralHidden = Object.values(window.game.enemies.types).every((type) =>
+      (type.meshes || []).every((part) => part.mesh?.visible === false)
+    );
+    return {
+      asset: window.onslaughtRobotAsset,
+      downloaded,
+      enemies: window.game.enemies.list.length,
+      proceduralHidden,
+    };
+  });
+
+  if (!robot.asset?.ready) throw new Error(`Robot asset did not report ready: ${JSON.stringify(robot)}`);
+  if (robot.downloaded < 1) throw new Error(`No downloaded robot scene objects found: ${JSON.stringify(robot)}`);
+  if (!robot.proceduralHidden) throw new Error(`Procedural robot meshes remained visible: ${JSON.stringify(robot)}`);
+  if (pageErrors.length) throw new Error(`Production robot page errors: ${pageErrors.join(' | ')}`);
+
+  console.log('production robot asset smoke: PASS', robot);
+  await page.close();
+}
+
 try {
   await runDesktop();
   await runMobile();
+  await runProductionRobotModel();
   console.log('ONSLAUGHT SMOKE: PASS');
 } finally {
   await browser.close();
